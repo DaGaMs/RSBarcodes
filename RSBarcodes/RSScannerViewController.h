@@ -30,4 +30,6 @@ typedef void (^RSTapGestureHandler)(CGPoint tapPoint);
 
 @property (nonatomic) BOOL isFocusMarkVisible;   // Default is YES
 
+- (IBAction)captureImage:(id)sender;
+
 @end

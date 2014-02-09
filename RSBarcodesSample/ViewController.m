@@ -15,6 +15,7 @@
 @interface ViewController ()
 
 @property (nonatomic, weak) IBOutlet RSCodeView *codeView;
+@property (weak, nonatomic) IBOutlet UIButton *snapButton;
 
 @property (nonatomic, weak) IBOutlet UILabel *codeLabel;
 
@@ -63,8 +64,8 @@
 //    self.codeView.code = [CodeGen genCodeWithContents:@"65833254" machineReadableCodeObjectType:AVMetadataObjectTypeEAN8Code];
     
     [self.view bringSubviewToFront:self.codeView];
-    
     [self.view bringSubviewToFront:self.codeLabel];
+    [self.view bringSubviewToFront:self.snapButton];
 }
 
 - (void)didReceiveMemoryWarning

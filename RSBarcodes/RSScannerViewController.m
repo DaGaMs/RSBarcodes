@@ -20,6 +20,9 @@
 @property (nonatomic, strong) AVCaptureVideoPreviewLayer *layer;
 @property (nonatomic, strong) AVCaptureMetadataOutput    *output;
 
+@property (nonatomic, strong) AVCaptureStillImageOutput  *imageOutput;
+@property (nonatomic, strong) UIImage                    *capturedImage;
+
 @end
 
 @implementation RSScannerViewController
@@ -88,6 +91,8 @@
         [self.session addInput:self.input];
     }
     
+    self.session.sessionPreset = AVCaptureSessionPresetPhoto;
+    
     self.layer = [[AVCaptureVideoPreviewLayer alloc] initWithSession:self.session];
     self.layer.videoGravity = AVLayerVideoGravityResizeAspectFill;
     self.layer.frame = self.view.bounds;
@@ -98,12 +103,16 @@
     [self.output setMetadataObjectsDelegate:self queue:queue];
     if ([self.session canAddOutput:self.output]) {
         [self.session addOutput:self.output];
-        if (!self.barcodeObjectTypes) {
-            NSMutableArray *codeObjectTypes = [NSMutableArray arrayWithArray:self.output.availableMetadataObjectTypes];
-            [codeObjectTypes removeObject:AVMetadataObjectTypeFace];
-            self.barcodeObjectTypes = [NSArray arrayWithArray:codeObjectTypes];
-        }
-        self.output.metadataObjectTypes = self.barcodeObjectTypes;
+        self.output.metadataObjectTypes = @[AVMetadataObjectTypeEAN8Code,AVMetadataObjectTypeEAN13Code,AVMetadataObjectTypeUPCECode,AVMetadataObjectTypeCode128Code,AVMetadataObjectTypeCode39Code];
+    } else {
+        NSLog(@"ERROR: can't add metadata capture output");
+    }
+    
+    self.imageOutput = [[AVCaptureStillImageOutput alloc] init];
+    if ([self.session canAddOutput:self.imageOutput]) {
+        [self.session addOutput:self.imageOutput];
+    } else {
+        NSLog(@"ERROR: can't add image capture output");
     }
     
     [self.view bringSubviewToFront:self.highlightView];
@@ -127,6 +136,27 @@
     }
     
     [self.session stopRunning];
+}
+
+#pragma mark - Action
+- (IBAction)captureImage:(id)sender
+{
+    AVCaptureConnection *videoConnection = [self.imageOutput connectionWithMediaType:AVMediaTypeVideo];
+    
+    if (!videoConnection)
+    {
+        NSLog(@"ERROR: No video connection found!");
+        return;
+    }
+    
+    NSLog(@"about to request a capture from: %@", self.imageOutput);
+    [self.imageOutput captureStillImageAsynchronouslyFromConnection:videoConnection completionHandler: ^(CMSampleBufferRef imageSampleBuffer, NSError *error) {
+        // WARNING we're back on the main thread!
+        if (imageSampleBuffer != NULL) {
+            NSData *imageData = [AVCaptureStillImageOutput jpegStillImageNSDataRepresentation:imageSampleBuffer];
+            self.capturedImage = [UIImage imageWithData:imageData];
+        }
+    }];
 }
 
 #pragma mark - View lifecycle
