@@ -49,6 +49,7 @@
         };
         
         self.tapGestureHandler = ^(CGPoint tapPoint) {
+            NSLog(@"Caught a tap!");
         };
     }
     return self;

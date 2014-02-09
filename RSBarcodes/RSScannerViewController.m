@@ -7,23 +7,14 @@
 //
 
 #import "RSScannerViewController.h"
-
 #import "RSCornersView.h"
 
-#import <AVFoundation/AVFoundation.h>
 
 @interface RSScannerViewController () <AVCaptureMetadataOutputObjectsDelegate>
-
-@property (nonatomic, strong) AVCaptureSession           *session;
-@property (nonatomic, strong) AVCaptureDevice            *device;
-@property (nonatomic, strong) AVCaptureDeviceInput       *input;
-@property (nonatomic, strong) AVCaptureVideoPreviewLayer *layer;
-@property (nonatomic, strong) AVCaptureMetadataOutput    *output;
-
-@property (nonatomic, strong) AVCaptureStillImageOutput  *imageOutput;
-@property (nonatomic, strong) UIImage                    *capturedImage;
-
+@property (nonatomic, strong) UIImage *capturedImage;
 @end
+
+NSString const *RSScannerCaptureErrorNoSource = @"RSScannerCaptureErrorNoSource";
 
 @implementation RSScannerViewController
 
@@ -44,13 +35,24 @@
     CGPoint tapPoint = [tapGestureRecognizer locationInView:self.view];
     CGPoint focusPoint= CGPointMake(tapPoint.x / self.view.bounds.size.width, tapPoint.y / self.view.bounds.size.height);
     
-    if (!self.device
-        && ![self.device isFocusPointOfInterestSupported]
-        && ![self.device isFocusModeSupported:AVCaptureFocusModeAutoFocus]) {
+    if (!self.device) {
         return;
     } else if ([self.device lockForConfiguration:nil]) {
-        [self.device setFocusPointOfInterest:focusPoint];
-        [self.device setFocusMode:AVCaptureFocusModeAutoFocus];
+        if ([self.device isFocusPointOfInterestSupported])
+            [self.device setFocusPointOfInterest:focusPoint];
+
+        if ([self.device isFocusModeSupported:AVCaptureFocusModeAutoFocus])
+            [self.device setFocusMode:AVCaptureFocusModeAutoFocus];
+        
+        if ([self.device isWhiteBalanceModeSupported:AVCaptureWhiteBalanceModeAutoWhiteBalance])
+            [self.device setWhiteBalanceMode:AVCaptureWhiteBalanceModeAutoWhiteBalance];
+
+        if ([self.device isExposurePointOfInterestSupported])
+            [self.device setExposurePointOfInterest:focusPoint];
+
+        if ([self.device isExposureModeSupported:AVCaptureExposureModeAutoExpose])
+            [self.device setExposureMode:AVCaptureExposureModeAutoExpose];
+
         [self.device unlockForConfiguration];
         
         if (self.isFocusMarkVisible) {
@@ -77,6 +79,16 @@
     if (!self.device) {
         NSLog(@"No video camera on this device!");
         return;
+    }
+    
+    if ([self.device lockForConfiguration:nil]) {
+        if ([self.device isFocusModeSupported:AVCaptureFocusModeContinuousAutoFocus])
+            [self.device setFocusMode:AVCaptureFocusModeContinuousAutoFocus];
+        if ([self.device isWhiteBalanceModeSupported:AVCaptureWhiteBalanceModeContinuousAutoWhiteBalance])
+            [self.device setWhiteBalanceMode:AVCaptureWhiteBalanceModeContinuousAutoWhiteBalance];
+        if ([self.device isExposureModeSupported:AVCaptureExposureModeContinuousAutoExposure])
+            [self.device setExposureMode:AVCaptureExposureModeContinuousAutoExposure];
+        [self.device unlockForConfiguration];
     }
     
     self.session = [[AVCaptureSession alloc] init];
@@ -119,6 +131,7 @@
     
     UITapGestureRecognizer *tapGestureRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(__handleTapGesture:)];
     [self.view addGestureRecognizer:tapGestureRecognizer];
+    tapGestureRecognizer.delegate = self;
 }
 
 - (void)__startRunning
@@ -128,6 +141,17 @@
     }
     
     [self.session startRunning];
+    
+    // reset settings to autofocus and auto-whitebalance
+    if (self.device && [self.device lockForConfiguration:nil]) {
+        if ([self.device isFocusModeSupported:AVCaptureFocusModeContinuousAutoFocus])
+            [self.device setFocusMode:AVCaptureFocusModeContinuousAutoFocus];
+        if ([self.device isWhiteBalanceModeSupported:AVCaptureWhiteBalanceModeContinuousAutoWhiteBalance])
+            [self.device setWhiteBalanceMode:AVCaptureWhiteBalanceModeContinuousAutoWhiteBalance];
+        if ([self.device isExposureModeSupported:AVCaptureExposureModeContinuousAutoExposure])
+            [self.device setExposureMode:AVCaptureExposureModeContinuousAutoExposure];
+        [self.device unlockForConfiguration];
+    }
 }
 
 - (void)__stopRunning {
@@ -138,23 +162,42 @@
     [self.session stopRunning];
 }
 
+#pragma mark GestureRecognizerDelegate
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer
+{
+    NSLog(@"Other recogniser: %@",otherGestureRecognizer);
+    return YES;
+}
+
 #pragma mark - Action
-- (IBAction)captureImage:(id)sender
+- (void)captureImageOnCompletion:(void (^)(UIImage *, NSError *))completionBlock
 {
     AVCaptureConnection *videoConnection = [self.imageOutput connectionWithMediaType:AVMediaTypeVideo];
     
     if (!videoConnection)
     {
-        NSLog(@"ERROR: No video connection found!");
+        NSError *error = [NSError errorWithDomain:RSScannerCaptureErrorNoSource
+                                             code:RSScannerCaptureErrorCodeNoSource
+                                         userInfo:nil];
+        completionBlock(nil, error);
         return;
     }
     
     NSLog(@"about to request a capture from: %@", self.imageOutput);
     [self.imageOutput captureStillImageAsynchronouslyFromConnection:videoConnection completionHandler: ^(CMSampleBufferRef imageSampleBuffer, NSError *error) {
         // WARNING we're back on the main thread!
-        if (imageSampleBuffer != NULL) {
+        if (error) {
+            completionBlock(nil, error);
+        }
+        else if (imageSampleBuffer != NULL) {
             NSData *imageData = [AVCaptureStillImageOutput jpegStillImageNSDataRepresentation:imageSampleBuffer];
-            self.capturedImage = [UIImage imageWithData:imageData];
+            UIImage *capturedImage = [UIImage imageWithData:imageData];
+            completionBlock(capturedImage, nil);
+        } else {
+            NSError *error = [NSError errorWithDomain:@"No image data"
+                                                 code:RSScannerCaptureErrorCodeNoData
+                                             userInfo:nil];
+            completionBlock(nil, error);
         }
     }];
 }
