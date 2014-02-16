@@ -105,10 +105,10 @@ NSString const *RSScannerCaptureErrorNoSource = @"RSScannerCaptureErrorNoSource"
     
     self.session.sessionPreset = AVCaptureSessionPresetPhoto;
     
-    self.layer = [[AVCaptureVideoPreviewLayer alloc] initWithSession:self.session];
-    self.layer.videoGravity = AVLayerVideoGravityResizeAspectFill;
-    self.layer.frame = self.view.bounds;
-    [self.view.layer addSublayer:self.layer];
+    self.previewLayer = [[AVCaptureVideoPreviewLayer alloc] initWithSession:self.session];
+    self.previewLayer.videoGravity = AVLayerVideoGravityResizeAspectFill;
+    self.previewLayer.frame = self.view.bounds;
+    [self.view.layer addSublayer:self.previewLayer];
     
     self.output = [[AVCaptureMetadataOutput alloc] init];
     dispatch_queue_t queue = dispatch_queue_create("com.pdq.RSBarcodes.metadata", 0);
@@ -255,7 +255,7 @@ NSString const *RSScannerCaptureErrorNoSource = @"RSScannerCaptureErrorNoSource"
     NSMutableArray *borderRectArray = nil;
     
     for (AVMetadataObject *metadataObject in metadataObjects) {
-        AVMetadataObject *transformedMetadataObject = [self.layer transformedMetadataObjectForMetadataObject:metadataObject];
+        AVMetadataObject *transformedMetadataObject = [self.previewLayer transformedMetadataObjectForMetadataObject:metadataObject];
         if ([transformedMetadataObject isKindOfClass:[AVMetadataMachineReadableCodeObject class]]) {
             AVMetadataMachineReadableCodeObject *barcodeObject = (AVMetadataMachineReadableCodeObject *)transformedMetadataObject;
             if (!barcodeObjects) {

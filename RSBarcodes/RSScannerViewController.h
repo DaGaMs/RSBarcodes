@@ -37,7 +37,7 @@ typedef void (^RSTapGestureHandler)(CGPoint tapPoint);
 @property (nonatomic, strong) AVCaptureSession           *session;
 @property (nonatomic, strong) AVCaptureDevice            *device;
 @property (nonatomic, strong) AVCaptureDeviceInput       *input;
-@property (nonatomic, strong) AVCaptureVideoPreviewLayer *layer;
+@property (nonatomic, strong) AVCaptureVideoPreviewLayer *previewLayer;
 @property (nonatomic, strong) AVCaptureMetadataOutput    *output;
 @property (nonatomic, strong) AVCaptureStillImageOutput  *imageOutput;
 
